@@ -1,4 +1,4 @@
-# Claude Slack Bot
+# Claude Slack Bot (Python)
 
 A Slack bot powered by Claude API that can engage in conversations, maintain context, and respond to mentions and direct messages.
 
@@ -9,11 +9,12 @@ A Slack bot powered by Claude API that can engage in conversations, maintain con
 - Maintains conversation history per thread
 - Shows typing indicator while processing
 - Supports `/claude-reset` command to clear conversation history
-- Built with TypeScript and Slack Bolt framework
+- Built with Python and Slack Bolt framework
 
 ## Prerequisites
 
-- Node.js 18+ and npm
+- Python 3.8 or higher
+- pip (Python package manager)
 - A Slack workspace where you can install apps
 - An Anthropic API key
 
@@ -96,15 +97,15 @@ A Slack bot powered by Claude API that can engage in conversations, maintain con
 ### 9. Install Dependencies and Run
 
 ```bash
+# Create a virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Install dependencies
-npm install
+pip install -r requirements.txt
 
-# Run in development mode
-npm run dev
-
-# Or build and run in production
-npm run build
-npm start
+# Run the bot
+python bot.py
 ```
 
 ## Usage
@@ -133,13 +134,11 @@ Use the slash command to clear conversation history:
 
 ```
 claude-slack-bot/
-├── src/
-│   └── index.ts          # Main application code
-├── dist/                 # Compiled JavaScript (generated)
+├── bot.py                # Main application code
+├── requirements.txt      # Python dependencies
 ├── .env                  # Environment variables (create from .env.example)
 ├── .env.example          # Example environment variables
-├── package.json          # Dependencies and scripts
-├── tsconfig.json         # TypeScript configuration
+├── .gitignore           # Git ignore file
 └── README.md            # This file
 ```
 
@@ -167,57 +166,78 @@ The bot stores conversation history in memory per thread/DM. If you restart the 
 
 For faster perceived response times, you can enable streaming:
 
-```typescript
-const stream = claude.messages.stream({
-  model: CLAUDE_MODEL,
-  max_tokens: 16000,
-  messages: messages,
-});
+```python
+stream = claude.messages.stream(
+    model=CLAUDE_MODEL,
+    max_tokens=16000,
+    messages=messages
+)
 
-let fullResponse = "";
-for await (const event of stream) {
-  if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-    fullResponse += event.delta.text;
-  }
-}
+full_response = ""
+with stream as s:
+    for text in s.text_stream:
+        full_response += text
+
+# Send the full response
+say(full_response, thread_ts=thread_ts)
 ```
 
 ### Add Tool Use
 
 Enable Claude to use tools (search, calculations, etc.) by adding tools to the API call:
 
-```typescript
-const response = await claude.messages.create({
-  model: CLAUDE_MODEL,
-  max_tokens: 16000,
-  tools: [
-    {
-      name: "get_weather",
-      description: "Get current weather for a location",
-      input_schema: {
-        type: "object",
-        properties: {
-          location: { type: "string" }
-        },
-        required: ["location"]
-      }
-    }
-  ],
-  messages: messages,
-});
+```python
+response = claude.messages.create(
+    model=CLAUDE_MODEL,
+    max_tokens=16000,
+    tools=[
+        {
+            "name": "get_weather",
+            "description": "Get current weather for a location",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "location": {"type": "string"}
+                },
+                "required": ["location"]
+            }
+        }
+    ],
+    messages=messages
+)
 ```
 
 ### Add System Prompts
 
 Customize Claude's behavior with a system prompt:
 
-```typescript
-const response = await claude.messages.create({
-  model: CLAUDE_MODEL,
-  max_tokens: 16000,
-  system: "You are a helpful assistant in a Slack workspace. Be concise and professional.",
-  messages: messages,
-});
+```python
+response = claude.messages.create(
+    model=CLAUDE_MODEL,
+    max_tokens=16000,
+    system="You are a helpful assistant in a Slack workspace. Be concise and professional.",
+    messages=messages
+)
+```
+
+### Add Extended Thinking
+
+For complex reasoning tasks, enable adaptive thinking:
+
+```python
+response = claude.messages.create(
+    model=CLAUDE_MODEL,
+    max_tokens=16000,
+    thinking={"type": "adaptive"},
+    messages=messages
+)
+
+# Extract thinking and text blocks
+for block in response.content:
+    if block.type == "thinking":
+        print(f"[Thinking]: {block.thinking}")
+    elif block.type == "text":
+        assistant_message = block.text
 ```
 
 ## Troubleshooting
@@ -236,6 +256,10 @@ const response = await claude.messages.create({
 - Bot token should start with `xoxb-`
 - App token should start with `xapp-`
 
+### ModuleNotFoundError
+- Make sure you activated the virtual environment
+- Run `pip install -r requirements.txt` again
+
 ### Rate limiting
 - Implement exponential backoff for API calls
 - Consider adding a queue for high-volume usage
@@ -245,18 +269,42 @@ const response = await claude.messages.create({
 
 For production use, consider:
 
-1. **Deploy to a server**: Use services like Heroku, AWS, or Railway
-2. **Add error handling**: Implement comprehensive error logging
-3. **Monitor costs**: Track API usage in Anthropic Console
-4. **Implement rate limiting**: Prevent abuse and control costs
-5. **Add user permissions**: Restrict bot access to specific users/channels
-6. **Persistent storage**: Use Redis or a database for conversation history
+1. **Deploy to a server**: Use services like Heroku, AWS, Railway, or Render
+2. **Use gunicorn**: For production WSGI server
+3. **Add error handling**: Implement comprehensive error logging with tools like Sentry
+4. **Monitor costs**: Track API usage in Anthropic Console
+5. **Implement rate limiting**: Prevent abuse and control costs
+6. **Add user permissions**: Restrict bot access to specific users/channels
+7. **Persistent storage**: Use Redis or a database for conversation history
+8. **Health checks**: Add endpoints for monitoring
+9. **Environment management**: Use proper secrets management (AWS Secrets Manager, etc.)
+
+### Example Heroku Deployment
+
+1. Create a `Procfile`:
+   ```
+   worker: python bot.py
+   ```
+
+2. Create `runtime.txt`:
+   ```
+   python-3.11.0
+   ```
+
+3. Deploy:
+   ```bash
+   heroku create your-app-name
+   heroku config:set SLACK_BOT_TOKEN=xoxb-...
+   heroku config:set SLACK_APP_TOKEN=xapp-...
+   heroku config:set ANTHROPIC_API_KEY=sk-...
+   git push heroku main
+   ```
 
 ## Resources
 
-- [Slack Bolt Framework](https://slack.dev/bolt-js/)
+- [Slack Bolt Python Framework](https://slack.dev/bolt-python/)
 - [Anthropic API Documentation](https://docs.anthropic.com/)
-- [Claude API TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript)
+- [Claude API Python SDK](https://github.com/anthropics/anthropic-sdk-python)
 
 ## License
 
