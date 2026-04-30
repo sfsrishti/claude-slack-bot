@@ -18,6 +18,26 @@ A Slack bot powered by Claude API that can engage in conversations, maintain con
 - A Slack workspace where you can install apps
 - An Anthropic API key
 
+## Quick Start
+
+```bash
+# Clone or navigate to the project
+cd claude-slack-bot
+
+# Create a virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy .env.example to .env and fill in your credentials
+cp .env.example .env
+
+# Run the bot
+python bot.py
+```
+
 ## Setup Instructions
 
 ### 1. Create a Slack App
@@ -45,7 +65,7 @@ A Slack bot powered by Claude API that can engage in conversations, maintain con
 1. Go to **Socket Mode** in your app settings
 2. Toggle **Enable Socket Mode** to ON
 3. Give your token a name (e.g., "claude-bot-token")
-4. Copy the **App Token** (starts with `xapp-`) - you'll need this later
+4. Copy the **App Token** (starts with `xapp-`)
 
 ### 4. Subscribe to Events
 
@@ -80,32 +100,14 @@ A Slack bot powered by Claude API that can engage in conversations, maintain con
 
 ### 8. Configure Environment Variables
 
-1. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
+Fill in your `.env` file with:
 
-2. Fill in your credentials:
-   ```env
-   SLACK_BOT_TOKEN=xoxb-your-bot-token
-   SLACK_APP_TOKEN=xapp-your-app-token
-   SLACK_SIGNING_SECRET=your-signing-secret
-   ANTHROPIC_API_KEY=your-anthropic-api-key
-   CLAUDE_MODEL=claude-opus-4-6
-   ```
-
-### 9. Install Dependencies and Run
-
-```bash
-# Create a virtual environment (recommended)
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the bot
-python bot.py
+```env
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_APP_TOKEN=xapp-your-app-token
+SLACK_SIGNING_SECRET=your-signing-secret
+ANTHROPIC_API_KEY=your-anthropic-api-key
+CLAUDE_MODEL=claude-opus-4-6
 ```
 
 ## Usage
@@ -130,18 +132,6 @@ Use the slash command to clear conversation history:
 /claude-reset
 ```
 
-## Project Structure
-
-```
-claude-slack-bot/
-├── bot.py                # Main application code
-├── requirements.txt      # Python dependencies
-├── .env                  # Environment variables (create from .env.example)
-├── .env.example          # Example environment variables
-├── .gitignore           # Git ignore file
-└── README.md            # This file
-```
-
 ## Configuration
 
 ### Model Selection
@@ -151,14 +141,6 @@ By default, the bot uses `claude-opus-4-6`. You can change this in `.env`:
 - `claude-opus-4-6` - Most capable model
 - `claude-sonnet-4-6` - Balanced speed and intelligence
 - `claude-haiku-4-5` - Fastest and most cost-effective
-
-### Conversation History
-
-The bot stores conversation history in memory per thread/DM. If you restart the bot, history is cleared. For production, consider:
-
-- Using Redis or a database for persistent storage
-- Implementing automatic cleanup of old conversations
-- Adding conversation history limits to manage memory
 
 ## Advanced Features
 
@@ -178,33 +160,7 @@ with stream as s:
     for text in s.text_stream:
         full_response += text
 
-# Send the full response
 say(full_response, thread_ts=thread_ts)
-```
-
-### Add Tool Use
-
-Enable Claude to use tools (search, calculations, etc.) by adding tools to the API call:
-
-```python
-response = claude.messages.create(
-    model=CLAUDE_MODEL,
-    max_tokens=16000,
-    tools=[
-        {
-            "name": "get_weather",
-            "description": "Get current weather for a location",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "location": {"type": "string"}
-                },
-                "required": ["location"]
-            }
-        }
-    ],
-    messages=messages
-)
 ```
 
 ### Add System Prompts
@@ -231,13 +187,6 @@ response = claude.messages.create(
     thinking={"type": "adaptive"},
     messages=messages
 )
-
-# Extract thinking and text blocks
-for block in response.content:
-    if block.type == "thinking":
-        print(f"[Thinking]: {block.thinking}")
-    elif block.type == "text":
-        assistant_message = block.text
 ```
 
 ## Troubleshooting
@@ -260,45 +209,16 @@ for block in response.content:
 - Make sure you activated the virtual environment
 - Run `pip install -r requirements.txt` again
 
-### Rate limiting
-- Implement exponential backoff for API calls
-- Consider adding a queue for high-volume usage
-- Monitor usage in the Anthropic Console
-
 ## Production Deployment
 
 For production use, consider:
 
 1. **Deploy to a server**: Use services like Heroku, AWS, Railway, or Render
-2. **Use gunicorn**: For production WSGI server
-3. **Add error handling**: Implement comprehensive error logging with tools like Sentry
-4. **Monitor costs**: Track API usage in Anthropic Console
-5. **Implement rate limiting**: Prevent abuse and control costs
-6. **Add user permissions**: Restrict bot access to specific users/channels
-7. **Persistent storage**: Use Redis or a database for conversation history
-8. **Health checks**: Add endpoints for monitoring
-9. **Environment management**: Use proper secrets management (AWS Secrets Manager, etc.)
-
-### Example Heroku Deployment
-
-1. Create a `Procfile`:
-   ```
-   worker: python bot.py
-   ```
-
-2. Create `runtime.txt`:
-   ```
-   python-3.11.0
-   ```
-
-3. Deploy:
-   ```bash
-   heroku create your-app-name
-   heroku config:set SLACK_BOT_TOKEN=xoxb-...
-   heroku config:set SLACK_APP_TOKEN=xapp-...
-   heroku config:set ANTHROPIC_API_KEY=sk-...
-   git push heroku main
-   ```
+2. **Add error handling**: Implement comprehensive error logging with tools like Sentry
+3. **Monitor costs**: Track API usage in Anthropic Console
+4. **Implement rate limiting**: Prevent abuse and control costs
+5. **Persistent storage**: Use Redis or a database for conversation history
+6. **Health checks**: Add endpoints for monitoring
 
 ## Resources
 
