@@ -11,7 +11,10 @@ load_dotenv()
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 # Initialize Claude client
-claude = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+claude = Anthropic(
+    api_key=os.environ.get("ENG_AI_MODEL_GW_KEY"),
+    base_url=os.environ.get("ANTHROPIC_BASE_URL", "https://eng-ai-model-gateway.sfproxy.devx-preprod.aws-esvc1-useast2.aws.sfdc.cl/chat/completions")
+)
 
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-4-6")
 
