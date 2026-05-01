@@ -1,7 +1,7 @@
 import os
+import requests
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-from anthropic import Anthropic
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -10,12 +10,9 @@ load_dotenv()
 # Initialize Slack app
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
-# Initialize Claude client
-claude = Anthropic(
-    api_key=os.environ.get("ENG_AI_MODEL_GW_KEY"),
-    base_url=os.environ.get("ANTHROPIC_BASE_URL", "https://eng-ai-model-gateway.sfproxy.devx-preprod.aws-esvc1-useast2.aws.sfdc.cl/chat/completions")
-)
-
+# Gateway configuration
+GATEWAY_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://eng-ai-model-gateway.sfproxy.devx-preprod.aws-esvc1-useast2.aws.sfdc.cl/chat/completions")
+API_KEY = os.environ.get("ENG_AI_MODEL_GW_KEY")
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-4-6")
 
 # Store conversation history per thread
@@ -27,6 +24,34 @@ def get_conversation_key(event):
     if event.get("thread_ts"):
         return event["thread_ts"]
     return event.get("channel", event.get("ts"))
+
+
+def call_claude_api(messages):
+    """Call the enterprise AI gateway with the messages."""
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "model": CLAUDE_MODEL,
+        "messages": messages,
+        "max_tokens": 16000
+    }
+
+    response = requests.post(GATEWAY_URL, headers=headers, json=payload)
+    response.raise_for_status()
+
+    data = response.json()
+
+    # Extract message content from response
+    if "choices" in data and len(data["choices"]) > 0:
+        return data["choices"][0]["message"]["content"]
+    elif "content" in data and isinstance(data["content"], list):
+        # Handle Anthropic-style response
+        return "".join([block.get("text", "") for block in data["content"] if block.get("type") == "text"])
+    else:
+        raise Exception(f"Unexpected response format: {data}")
 
 
 @app.event("app_mention")
@@ -65,17 +90,7 @@ def handle_mention(event, say, client):
             print(f"Could not add reaction: {e}")
 
         # Call Claude API
-        response = claude.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=16000,
-            messages=messages
-        )
-
-        # Extract text from response
-        assistant_message = ""
-        for block in response.content:
-            if block.type == "text":
-                assistant_message += block.text
+        assistant_message = call_claude_api(messages)
 
         # Add assistant response to history
         messages.append({
@@ -148,17 +163,7 @@ def handle_message(event, say, client):
             print(f"Could not add reaction: {e}")
 
         # Call Claude API
-        response = claude.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=16000,
-            messages=messages
-        )
-
-        # Extract text from response
-        assistant_message = ""
-        for block in response.content:
-            if block.type == "text":
-                assistant_message += block.text
+        assistant_message = call_claude_api(messages)
 
         # Add assistant response to history
         messages.append({
