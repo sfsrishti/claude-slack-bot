@@ -39,19 +39,31 @@ def call_claude_api(messages):
         "max_tokens": 16000
     }
 
-    response = requests.post(GATEWAY_URL, headers=headers, json=payload)
-    response.raise_for_status()
+    print(f"Calling gateway at: {GATEWAY_URL}")
+    print(f"Using model: {CLAUDE_MODEL}")
 
-    data = response.json()
+    try:
+        response = requests.post(GATEWAY_URL, headers=headers, json=payload, timeout=10)
+        print(f"Response status: {response.status_code}")
+        response.raise_for_status()
 
-    # Extract message content from response
-    if "choices" in data and len(data["choices"]) > 0:
-        return data["choices"][0]["message"]["content"]
-    elif "content" in data and isinstance(data["content"], list):
-        # Handle Anthropic-style response
-        return "".join([block.get("text", "") for block in data["content"] if block.get("type") == "text"])
-    else:
-        raise Exception(f"Unexpected response format: {data}")
+        data = response.json()
+        print(f"Response data keys: {data.keys()}")
+
+        # Extract message content from response
+        if "choices" in data and len(data["choices"]) > 0:
+            return data["choices"][0]["message"]["content"]
+        elif "content" in data and isinstance(data["content"], list):
+            # Handle Anthropic-style response
+            return "".join([block.get("text", "") for block in data["content"] if block.get("type") == "text"])
+        else:
+            raise Exception(f"Unexpected response format: {data}")
+    except requests.exceptions.Timeout:
+        print(f"Timeout connecting to {GATEWAY_URL}")
+        raise Exception("Gateway connection timed out. Check network connectivity and Private Space peering.")
+    except requests.exceptions.ConnectionError as e:
+        print(f"Connection error: {e}")
+        raise Exception("Cannot connect to gateway. Verify Private Space network configuration.")
 
 
 @app.event("app_mention")
