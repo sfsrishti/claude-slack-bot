@@ -10,10 +10,11 @@ load_dotenv()
 # Initialize Slack app
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
-# Gateway configuration
-GATEWAY_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://eng-ai-model-gateway.sfproxy.devx-preprod.aws-esvc1-useast2.aws.sfdc.cl/chat/completions")
-API_KEY = os.environ.get("ENG_AI_MODEL_GW_KEY")
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-4-6")
+# Gateway configuration - using Bedrock endpoint
+GATEWAY_URL = os.environ.get("ANTHROPIC_BEDROCK_BASE_URL", "https://eng-ai-model-gateway.sfproxy.devx-preprod.aws-esvc1-useast2.aws.sfdc.cl/bedrock")
+AUTH_TOKEN = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "anthropic.claude-sonnet-4-20250514-v1:0")
+SKIP_SSL_VERIFY = os.environ.get("SKIP_SSL_VERIFY", "1") == "1"
 
 # Store conversation history per thread
 conversation_history = {}
@@ -29,7 +30,7 @@ def get_conversation_key(event):
 def call_claude_api(messages):
     """Call the enterprise AI gateway with the messages."""
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {AUTH_TOKEN}",
         "Content-Type": "application/json"
     }
 
@@ -43,7 +44,13 @@ def call_claude_api(messages):
     print(f"Using model: {CLAUDE_MODEL}")
 
     try:
-        response = requests.post(GATEWAY_URL, headers=headers, json=payload, timeout=10)
+        response = requests.post(
+            GATEWAY_URL,
+            headers=headers,
+            json=payload,
+            timeout=10,
+            verify=not SKIP_SSL_VERIFY
+        )
         print(f"Response status: {response.status_code}")
         response.raise_for_status()
 
